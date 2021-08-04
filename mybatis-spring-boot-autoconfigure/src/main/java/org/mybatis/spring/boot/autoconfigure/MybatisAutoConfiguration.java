@@ -130,11 +130,15 @@ public class MybatisAutoConfiguration implements InitializingBean {
   @ConditionalOnMissingBean
   public SqlSessionFactory sqlSessionFactory(DataSource dataSource) throws Exception {
     SqlSessionFactoryBean factory = new SqlSessionFactoryBean();
+    // 设置datasource
     factory.setDataSource(dataSource);
+    // 设置vfs
     factory.setVfs(SpringBootVFS.class);
+    // 这里看看你配置那个 配置文件地址了么 ，如果有的话，就使用spring的resourceLoader进行资源加载
     if (StringUtils.hasText(this.properties.getConfigLocation())) {
       factory.setConfigLocation(this.resourceLoader.getResource(this.properties.getConfigLocation()));
     }
+    // 应该算是初始化 configuration对象
     applyConfiguration(factory);
     if (this.properties.getConfigurationProperties() != null) {
       factory.setConfigurationProperties(this.properties.getConfigurationProperties());
@@ -180,8 +184,12 @@ public class MybatisAutoConfiguration implements InitializingBean {
   }
 
   private void applyConfiguration(SqlSessionFactoryBean factory) {
+    // 获取Configuration
     Configuration configuration = this.properties.getConfiguration();
+
+    // configuration 是null 并且 配置文件地址也是空的
     if (configuration == null && !StringUtils.hasText(this.properties.getConfigLocation())) {
+      //TODO 这里有一堆初始化的东西 。。。。。。
       configuration = new Configuration();
     }
     if (configuration != null && !CollectionUtils.isEmpty(this.configurationCustomizers)) {
@@ -209,9 +217,7 @@ public class MybatisAutoConfiguration implements InitializingBean {
    * similar to using Spring Data JPA repositories.
    */
   public static class AutoConfiguredMapperScannerRegistrar implements BeanFactoryAware, ImportBeanDefinitionRegistrar {
-
     private BeanFactory beanFactory;
-
     @Override
     public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
 
@@ -219,16 +225,15 @@ public class MybatisAutoConfiguration implements InitializingBean {
         logger.debug("Could not determine auto-configuration package, automatic mapper scanning disabled.");
         return;
       }
-
       logger.debug("Searching for mappers annotated with @Mapper");
-
       List<String> packages = AutoConfigurationPackages.get(this.beanFactory);
       if (logger.isDebugEnabled()) {
         packages.forEach(pkg -> logger.debug("Using auto-configuration base package '{}'", pkg));
       }
-
+      // 注册一个MapperScannerConfigurer
       BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition(MapperScannerConfigurer.class);
       builder.addPropertyValue("processPropertyPlaceHolders", true);
+      /// @Mapper注解的class对象
       builder.addPropertyValue("annotationClass", Mapper.class);
       builder.addPropertyValue("basePackage", StringUtils.collectionToCommaDelimitedString(packages));
       BeanWrapper beanWrapper = new BeanWrapperImpl(MapperScannerConfigurer.class);
@@ -242,6 +247,8 @@ public class MybatisAutoConfiguration implements InitializingBean {
         // Need to mybatis-spring 2.0.6+
         builder.addPropertyValue("defaultScope", "${mybatis.mapper-default-scope:}");
       }
+
+      //向spring 容器中注册MapperScannerConfigurer 这个bean
       registry.registerBeanDefinition(MapperScannerConfigurer.class.getName(), builder.getBeanDefinition());
     }
 
